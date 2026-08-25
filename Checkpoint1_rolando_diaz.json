@@ -1,0 +1,487 @@
+{
+  "name": "Checkpoint 1 - Agente Base | Curso IA Aplicada para Empresas",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "curso-ia-agente",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5a48a803-43e3-421f-a251-d0f09c582391",
+      "name": "Webhook | Entrada de Mensaje",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        112,
+        688
+      ],
+      "webhookId": "a1111111-1111-4111-8111-111111111111"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NORMALIZAR ENTRADA (zona determinista)\n// Toma el cuerpo del POST enviado desde Postman (chat tipo WhatsApp)\n// y lo estandariza. Se aceptan varios nombres de campo por comodidad.\n\nconst body = ($input.first().json.body) || {};\n\nconst consultaRaw =\n  body.consulta ?? body.opcion ?? body.mensaje ?? body.message ?? body.text ?? '';\n\nconst consulta = String(consultaRaw).trim();\n\nreturn [\n  {\n    json: {\n      consulta: consulta,\n      consulta_normalizada: consulta.toLowerCase(),\n      canal_origen: body.canal_origen ?? 'webhook_postman',\n      // Se considera valida una seleccion o consulta con contenido real\n      es_valida: consulta.length > 0\n    }\n  }\n];"
+      },
+      "id": "020ebfe7-d311-4a9f-bdeb-8e5b498b295b",
+      "name": "Normalizar entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-entrada-valida",
+              "leftValue": "={{ $json.es_valida }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c685e023-4255-4066-98df-02982ae7ea9d",
+      "name": "Entrada valida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "regla-tarifas",
+                    "leftValue": "={{ $json.consulta_normalizada }}",
+                    "rightValue": "(^\\s*1\\s*$)|(tarifa|tarifas|precio|precios|valor|valores|costo|costos|arancel|inversion)",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "tarifas"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "regla-horarios",
+                    "leftValue": "={{ $json.consulta_normalizada }}",
+                    "rightValue": "(^\\s*2\\s*$)|(horario|horarios|fecha|fechas|cohorte|cohortes|calendario|dias|duracion|duración|cupo|cupos|cuando)",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "horarios"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "especialista"
+        }
+      },
+      "id": "c8f66c3b-c308-4676-af2d-bbdb06672958",
+      "name": "Menu | Clasificar opcion",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        784,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"opcion\": \"1 - Tarifas\",\n  \"respuesta\": \"Tarifas del programa \\\"IA Aplicada para Empresas\\\" (valores en pesos chilenos, IVA incluido):\\n\\n- Programa completo, 24 horas: $390.000\\n- Preventa, hasta 15 días antes del inicio: $320.000\\n- Grupo de 3 a 5 personas: $330.000 por participante\\n- Grupo de 6 o más personas: $290.000 por participante\\n\\nTambién hay modalidad cerrada (in-company) para empresas. Para esa opción, convenios o condiciones especiales de pago, responde 3 y te derivamos con un especialista.\",\n  \"menu\": [\"1. Tarifas\", \"2. Horarios y fechas\", \"3. Hablar con un especialista\"]\n}",
+        "options": {}
+      },
+      "id": "af35e632-5e0a-4939-bf9f-d82a7305bb75",
+      "name": "Respond Tarifas",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"opcion\": \"2 - Horarios y fechas\",\n  \"respuesta\": \"El programa dura 24 horas cronológicas: 8 módulos de 3 horas, 2 sesiones por semana durante 4 semanas. Modalidad online en vivo por videoconferencia.\\n\\nPróximas cohortes 2026:\\n- Cohorte 5: 15 de septiembre al 9 de octubre. Martes y jueves, 19:00 a 22:00. Inscripciones abiertas.\\n- Cohorte 6: 20 de octubre al 13 de noviembre. Martes y jueves, 19:00 a 22:00. Inscripciones abiertas.\\n- Cohorte 7: 10 de noviembre al 4 de diciembre. Lunes y miércoles, 09:00 a 12:00. Lista de espera.\\n\\n¿Quieres reservar un cupo o revisar otra duda? Responde 3 para hablar con un especialista.\",\n  \"menu\": [\"1. Tarifas\", \"2. Horarios y fechas\", \"3. Hablar con un especialista\"]\n}",
+        "options": {}
+      },
+      "id": "46ea07a9-1c1d-4cea-b1cc-091f8f937f28",
+      "name": "Respond Horarios",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"opcion\": \"menu_inicial\",\n  \"respuesta\": \"Hola, soy el asistente del programa \\\"IA Aplicada para Empresas: Modelos Frontera y Productividad en la Pyme Chilena\\\", dictado por Rolando Díaz. ¿En qué puedo ayudarte? Responde con el número de una opción:\",\n  \"menu\": [\"1. Tarifas\", \"2. Horarios y fechas\", \"3. Hablar con un especialista\"]\n}",
+        "options": {}
+      },
+      "id": "520df299-4e18-4467-bfaa-95ce3f741d5d",
+      "name": "Respond Menu Inicial",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        784,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.consulta }}",
+        "options": {
+          "systemMessage": "# MÓDULO 1 — ROL CORPORATIVO\n\nEres el Asistente Académico y Comercial oficial del programa \"IA Aplicada para Empresas: Modelos Frontera y Productividad en la Pyme Chilena\", dictado por Rolando Díaz.\n\nActúas como el \"especialista\" al que llega la persona cuando elige la opción 3 del menú, o cuando su consulta no corresponde a una opción fija del menú. Tu interlocutor típico es un dueño, gerente o encargado de área de una pequeña o mediana empresa en Chile, con conocimiento técnico limitado sobre inteligencia artificial y con poco tiempo disponible.\n\nHablas en español de Chile, en registro profesional y cercano, tratando de \"usted\" solo si el interlocutor lo hace primero.\n\n# MÓDULO 2 — OBJETIVOS COMERCIALES DE LA SESIÓN\n\nTus objetivos, en orden de prioridad:\n\n1. Resolver con precisión las consultas sobre temario, modalidad, duración, requisitos previos y valores del programa.\n2. Traducir cada contenido del curso a un beneficio operativo concreto para la pyme del interlocutor, evitando el lenguaje técnico abstracto.\n3. Detectar el área de negocio del interlocutor y orientar la conversación hacia los módulos del programa con mayor retorno para ese caso.\n4. Cerrar toda interacción con un siguiente paso claro y accionable: inscripción, reserva de cupo o agendamiento de una llamada de diagnóstico.\n\n# MÓDULO 3 — DOMINIO DE CONOCIMIENTO\n\nEl programa aborda el impacto positivo de los modelos frontera de IA en el mercado laboral de las pymes chilenas, y compara de forma práctica las fortalezas diferenciales de los tres ecosistemas principales: Claude (Cowork y Claude Code), Gemini (NotebookLM y generación de imagen y video) y ChatGPT (modelos agénticos).\n\nToda información específica sobre temario detallado, fechas, modalidad y valores reside exclusivamente en el documento maestro accesible mediante tu herramienta. Tu conocimiento general de IA sirve para explicar conceptos, nunca para afirmar datos del programa.\n\n# MÓDULO 4 — RESTRICCIONES EXPLÍCITAS DE ACCIÓN\n\n- Nunca declares un valor, precio, descuento, fecha de inicio o duración que no provenga textualmente de la herramienta de consulta documental. Si el dato no está en el documento, responde que no lo tienes confirmado y ofrece derivar la consulta.\n- Nunca inventes módulos, certificaciones, convenios institucionales ni respaldos académicos.\n- Nunca comprometas descuentos, becas, condiciones de pago ni cupos reservados. Esas decisiones son exclusivas del equipo humano.\n- Nunca emitas asesoría legal, tributaria, contable ni laboral, aunque el interlocutor la solicite.\n- Nunca descalifiques a proveedores tecnológicos ni a programas de la competencia. Compara solo por características verificables.\n- Si el interlocutor solicita algo fuera de tu alcance, indícalo con transparencia y deriva al contacto humano en lugar de improvisar.\n- Ante ambigüedad, formula una única pregunta de clarificación antes de responder.\n\n# MÓDULO 5 — ESTILO Y REDACCIÓN\n\n- Redacta en español neutro y correcto, conforme a la norma académica vigente.\n- Queda excluido de forma total el lenguaje inclusivo: no utilices desdoblamientos ni las terminaciones \"@\", \"x\" o \"e\" como marca de género. Emplea sustantivos colectivos y formas genéricas del idioma.\n- Respuestas breves y estructuradas. Máximo tres párrafos, o listas cortas cuando enumeres.\n- Sin emojis ni signos de exclamación múltiples.\n- Cierra siempre con una pregunta o una acción concreta.\n\n# MÓDULO 6 — PROTOCOLO DE RAZONAMIENTO\n\nAntes de responder cualquier consulta sobre contenido, valores o logística del programa, consulta obligatoriamente la herramienta documental. No respondas de memoria. Si tras la consulta el dato sigue ausente, declara la ausencia de forma explícita en lugar de completarla.",
+          "maxIterations": 8,
+          "returnIntermediateSteps": true
+        }
+      },
+      "id": "82a7fd12-4cf1-41a3-b7d7-a7569c950763",
+      "name": "AI Agent | Motor de Razonamiento",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1104,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "BASE DOCUMENTAL MAESTRA DEL PROGRAMA DE IA APLICADA PARA EMPRESAS.\n\nEsta herramienta recupera el contenido íntegro del documento consolidado que funciona como única fuente de verdad del programa. El documento contiene: el temario completo desglosado por módulo, los objetivos de aprendizaje de cada unidad, la modalidad de dictado, la duración en horas cronológicas, el calendario de inicio de cada cohorte, los requisitos previos exigidos a los participantes, la estructura de valores y aranceles vigentes, las modalidades de pago habilitadas, las condiciones de facturación para empresas y los datos de contacto del equipo comercial.\n\nCUÁNDO DEBES ACTIVAR ESTA HERRAMIENTA DE FORMA AUTÓNOMA:\n\n1. Cuando el interlocutor pregunte por el precio, el valor, el arancel, el costo o cualquier variante económica del programa, incluyendo consultas indirectas del tipo \"es caro\", \"cuánto habría que invertir\" o \"qué presupuesto necesito\".\n2. Cuando consulte por el temario, los contenidos, los módulos, las unidades o qué se enseña específicamente en el curso.\n3. Cuando pregunte por fechas de inicio, duración, carga horaria, horarios de clase o disponibilidad de cupos.\n4. Cuando consulte la modalidad de dictado, si es presencial, remota o híbrida, y qué plataforma se utiliza.\n5. Cuando pregunte por requisitos previos, nivel técnico exigido, conocimientos necesarios o si el programa aplica a su rubro específico.\n6. Cuando solicite información sobre certificación, constancia de participación o respaldo del programa.\n7. Cuando pregunte por formas de pago, cuotas, facturación a empresa o convenios corporativos.\n8. Cuando necesites verificar cualquier afirmación factual sobre el programa antes de comunicarla, incluso si crees recordar el dato.\n\nCUÁNDO NO DEBES ACTIVARLA:\n\nNo la actives para explicar conceptos generales de inteligencia artificial, para responder saludos, para conversación social, ni para preguntas ajenas al programa. En esos casos responde con tu conocimiento propio sin consumir una llamada a la herramienta.\n\nREGLA CRÍTICA DE INTEGRIDAD: cualquier dato numérico, monetario o calendario que comuniques debe provenir de la ejecución de esta herramienta en el turno actual. Está prohibido responder con valores recordados, estimados o inferidos. Si la herramienta no devuelve el dato solicitado, informa explícitamente que la información no está confirmada y deriva al contacto humano.",
+        "operation": "get",
+        "documentURL": "18EbAfws-zHePsD1RSqO1XANyjfkSQrLxoWkt9s4z99o"
+      },
+      "id": "c0aaf981-572d-4cef-984a-d8d05331ee33",
+      "name": "Google Docs | Base Documental del Curso",
+      "type": "n8n-nodes-base.googleDocsTool",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        976
+      ],
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "dGDjcInNNPx3UauF",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ opcion: '3 - Especialista (AI Agent)', canal_origen: $('Normalizar entrada').item.json.canal_origen, respuesta: $json.output, menu: ['1. Tarifas', '2. Horarios y fechas', '3. Hablar con un especialista'] }, null, 2) }}",
+        "options": {}
+      },
+      "id": "1c97351b-cbe8-4c5e-8a4a-46b5e7c1bef8",
+      "name": "Respond Especialista",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1392,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "REEMPLAZAR_CON_TU_CORREO@gmail.com",
+        "subject": "=[Observabilidad] Ejecucion del Agente Base - {{ $now.format('dd-MM-yyyy HH:mm') }}",
+        "emailType": "text",
+        "message": "=REPORTE AUTOMATICO DE OBSERVABILIDAD\n=======================================\n\nFlujo: Checkpoint 1 - Agente Base | Curso IA Aplicada para Empresas\nID de ejecucion: {{ $execution.id }}\nModo de ejecucion: {{ $execution.mode }}\nCanal de origen: {{ $('Normalizar entrada').item.json.canal_origen }}\nFecha y hora: {{ $now.format('dd-MM-yyyy HH:mm:ss') }}\n\n---------------------------------------\nCONSULTA RECIBIDA (opcion 3 / especialista)\n---------------------------------------\n{{ $('Normalizar entrada').item.json.consulta }}\n\n---------------------------------------\nRESPUESTA GENERADA POR EL AGENTE\n---------------------------------------\n{{ $('AI Agent | Motor de Razonamiento').item.json.output }}\n\n---------------------------------------\nTRAZA DE RAZONAMIENTO (PASOS INTERMEDIOS)\n---------------------------------------\n{{ JSON.stringify($('AI Agent | Motor de Razonamiento').item.json.intermediateSteps, null, 2) }}\n\n---------------------------------------\nHerramientas disponibles: Google Docs (base documental)\nLimite de iteraciones configurado: 8\n\nReporte generado automaticamente para auditoria humana.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "89132bfb-dbb1-497b-ba03-133443ca81ae",
+      "name": "Gmail | Reporte de Observabilidad",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1664,
+        752
+      ],
+      "webhookId": "22222222-bbbb-4ccc-8ddd-000000000001",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "MgyAf2OhSmyEOcSP",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        992
+      ],
+      "id": "4a4544b2-0688-4d74-9b8e-06a5a4baa59a",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "j5iF49ocYm2vp71U",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## ZONA DETERMINISTA (menu tipo WhatsApp)\n\n**Webhook (POST)** recibe el mensaje desde Postman.\n\n**Normalizar entrada** estandariza el cuerpo JSON (campo `consulta` u `opcion`).\n\n**Entrada valida?** (IF): si el mensaje viene vacio -> **Respond Menu Inicial** (bienvenida + menu).\n\n**Menu | Clasificar opcion** (Switch, reglas) resuelve al instante la seleccion del menu:\n- 1 / \"tarifas\"  -> **Respond Tarifas**\n- 2 / \"horarios\" -> **Respond Horarios**\n- 3 / \"especialista\" / resto -> zona agentica\n\nRespuestas fijas y predecibles, sin gastar tokens.",
+        "height": 380,
+        "width": 750,
+        "color": 4
+      },
+      "id": "950e039b-9046-4c49-ac6e-aa125b53b5b0",
+      "name": "Nota | Zona Determinista",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## GUARDRAIL DE PRESUPUESTO\n\nEl nodo AI Agent tiene **Max Iterations = 8** (rango exigido: 5 a 10).\n\nEste limite corta el ciclo ReAct si el agente entra en bucle de razonamiento, blindando el gasto de tokens de la organizacion.",
+        "height": 220,
+        "width": 300,
+        "color": 3
+      },
+      "id": "1511d290-d9f9-476f-84a5-343f3a267ce7",
+      "name": "Nota | Guardrail",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ZONA PROBABILISTICA (opcion 3: hablar con un especialista)\n\nSolo la salida **especialista** (Fallback) del Switch llega al agente: la opcion 3, la frase \"hablar con un especialista\" o cualquier consulta abierta que no sea del menu.\n\nEl \"especialista\" es el propio AI Agent: decide de forma autonoma si consulta la base documental y cuantas veces itera (guardrail de 8 vueltas). Las opciones 1 y 2 se resolvieron antes SIN gastar tokens.",
+        "height": 268,
+        "width": 716,
+        "color": 5
+      },
+      "id": "48b56141-5a9f-4d5e-8364-dd9610b82503",
+      "name": "Nota | Zona Agentica",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        992,
+        1152
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## COMO PROBAR CON POSTMAN\n\n**POST** a la URL del Webhook:\n`http://localhost:5678/webhook-test/curso-ia-agente`\n(usa `/webhook/` cuando el flujo este activo).\n\nBody -> **raw / JSON**. Prueba cada rama:\n\nOpcion 1 (tarifas):\n`{ \"consulta\": \"1\" }`\n\nOpcion 2 (horarios):\n`{ \"consulta\": \"2\" }`\n\nOpcion 3 (especialista / AI):\n`{ \"consulta\": \"3, quiero cotizar in-company para 15 personas\" }`\n\nConsulta abierta (cae al agente):\n`{ \"consulta\": \"que se ve en el modulo de Gemini?\" }`\n\nMenu / bienvenida:\n`{ \"consulta\": \"\" }`",
+        "height": 644,
+        "width": 440,
+        "color": 6
+      },
+      "id": "4a33e44e-619b-4e58-befb-cf1b6c0b0a23",
+      "name": "Nota | Prueba Postman",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        80,
+        912
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook | Entrada de Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Normalizar entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar entrada": {
+      "main": [
+        [
+          {
+            "node": "Entrada valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entrada valida?": {
+      "main": [
+        [
+          {
+            "node": "Menu | Clasificar opcion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Menu Inicial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Menu | Clasificar opcion": {
+      "main": [
+        [
+          {
+            "node": "Respond Tarifas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Horarios",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent | Motor de Razonamiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent | Motor de Razonamiento": {
+      "main": [
+        [
+          {
+            "node": "Respond Especialista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond Especialista": {
+      "main": [
+        [
+          {
+            "node": "Gmail | Reporte de Observabilidad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Docs | Base Documental del Curso": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent | Motor de Razonamiento",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent | Motor de Razonamiento",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "fba9c538-3366-4466-8cdb-70966eaa764b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "abf3e58fcc27c030981147d1b1d3b32330ac407bd7ff35f52ad4dc3dd75ae2fd"
+  },
+  "nodeGroups": [],
+  "id": "sCINu0eRsd4UNA6c",
+  "tags": [
+    {
+      "updatedAt": "2026-08-22T20:39:24.882Z",
+      "createdAt": "2026-08-22T20:39:24.882Z",
+      "id": "6S4Bchl8cm79lCyp",
+      "name": "checkpoint1"
+    },
+    {
+      "updatedAt": "2026-08-22T20:39:24.933Z",
+      "createdAt": "2026-08-22T20:39:24.933Z",
+      "id": "SKLpz17vivip8rXy",
+      "name": "proyecto-integrador"
+    }
+  ]
+}
